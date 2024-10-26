@@ -1,0 +1,123 @@
+from google.colab import drive
+drive.mount('/content/drive')
+......................................................
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+!pip install hazm
+......................................................
+df = pd.read_csv('/content/drive/MyDrive/Dataset/Sentiments.csv')
+
+df
+..................................................
+label_counts = df['sentiment'].value_counts()
+
+label_counts
+...................................................
+# Create a bar plot
+plt.figure(figsize=(8, 6))
+plt.bar(label_counts.index, label_counts.values, color=['red', 'green' , 'blue'])
+plt.xlabel('sentiment')
+plt.ylabel('Count')
+plt.title('Number of Each Label')
+plt.show()
+..............................................
+# Check for missing values
+missing_values = df.isnull().sum()
+
+missing_values
+.......................................
+blanks = []
+
+for i,email,label in df.itertuples():  # iterate over the DataFrame
+    if email.isspace():         # test 'comment' for whitespace
+        blanks.append(i)     # add matching index numbers to the list
+
+print(len(blanks),"   |    ", 'blanks: ', blanks , )
+............................................................
+import hazm
+stopwords = hazm.stopwords_list()
+lemmatizer = hazm.Lemmatizer()
+normalizer = hazm.Normalizer()
+.......................................................
+print(len(stopwords))
+
+stopwords[0:10]
+............................................................
+test = "سلام میکنم دوستان عزیز به خصوص آقای محمدی و آقای محمدیان"
+clean = normalizer.normalize(test)
+
+clean
+.................................................................
+def preprocess_text(messy_string):
+    assert(type(messy_string) == str)
+
+    # Normalize, tokenize, remove stopwords, lemmatize, and rejoin
+    cleaned = ' '.join([
+        lemmatizer.lemmatize(word)
+        for word in normalizer.normalize(messy_string).split()
+        if word not in stopwords
+    ])
+
+    return cleaned
+....................................................................
+df['comment'] = df['comment'].apply(preprocess_text)
+
+df.head()
+.....................................................................
+# Import necessary libraries
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+
+# Define the pipeline with a more descriptive name
+text_processing_pipeline = Pipeline([
+    ('Vectorize', CountVectorizer()),
+    ('TF-IDF', TfidfTransformer())
+])
+..............................................................................................
+from sklearn.model_selection import train_test_split
+
+X_train, X_test, y_train, y_test = train_test_split(df["comment"], df["sentiment"], test_size=0.2, random_state=42)
+.........................................................................
+X_train = text_processing_pipeline.fit_transform(X_train)
+X_test = text_processing_pipeline.transform(X_test)
+........................................................................
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.metrics import classification_report
+........................................................................
+# Define a dictionary of classifiers for easier referencing and potential scalability
+classifiers = {
+    "SVC": SVC(kernel='linear'),
+    "RandomForest": RandomForestClassifier(n_estimators=100, random_state=42),
+    "LogisticRegression": LogisticRegression(random_state=42),
+    "MultinomialNB": MultinomialNB()
+}
+
+# Iterate over each classifier and print report
+for classifier_name, classifier_obj in classifiers.items():
+    # Fit the model
+    classifier_obj.fit(X_train, y_train)
+        
+    # Make predictions
+    y_pred = classifier_obj.predict(X_test)
+        
+    # Generate classification report
+    report = classification_report(y_test, y_pred)
+        
+    # Print the classification report
+    print(f'Classification report for {classifier_name}: ')
+    print(report)
+....................................................................
+df.iloc[1600]
+................................................................
+# Test the model with a custom email
+
+#comment = preprocess_text("من این فیلم رو دوست نداشتم و خیلی بدم اومد ")
+comment = df.iloc[1600]['comment']
+
+custom_comment = text_processing_pipeline.transform([comment])
+
+print(classifiers["SVC"].predict(custom_comment))
